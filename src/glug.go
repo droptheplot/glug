@@ -1,6 +1,7 @@
 package glug
 
 import (
+	// "github.com/davecgh/go-spew/spew"
 	"net/http"
 	"net/url"
 	"strings"
@@ -42,26 +43,32 @@ func Init() *Router {
 
 // HandleFunc will add new endpoint to router.
 func (router *Router) HandleFunc(method string, path string, plugs ...Plug) {
-	var curr *node
+	if path == "/" {
+		router.node.path = path
+		router.node.methods = make(map[string][]Plug)
+		router.node.methods[method] = plugs
+	} else {
+		var curr *node
 
-	parts := strings.Split(path, "/")[1:]
-	depth := len(parts)
-	prev := &router.node
+		parts := strings.Split(path, "/")[1:]
+		depth := len(parts)
+		prev := &router.node
 
-	for index, part := range parts {
-		if child, ok := prev.children[part]; ok {
-			curr = child
-		} else {
-			curr = &node{path: part, children: make(map[string]*node)}
+		for index, part := range parts {
+			if child, ok := prev.children[part]; ok {
+				curr = child
+			} else {
+				curr = &node{path: part, children: make(map[string]*node)}
+			}
+
+			if depth == index+1 {
+				curr.methods = make(map[string][]Plug)
+				curr.methods[method] = plugs
+			}
+
+			prev.children[part] = curr
+			prev = curr
 		}
-
-		if depth == index+1 {
-			curr.methods = make(map[string][]Plug)
-			curr.methods[method] = plugs
-		}
-
-		prev.children[part] = curr
-		prev = curr
 	}
 }
 
@@ -72,19 +79,21 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	r.ParseForm()
 
-	parts := strings.Split(r.URL.Path, "/")[1:]
-	depth := len(parts)
 	curr := &router.node
+	conn := Conn{Writer: w, Request: r, Params: r.Form, halted: false}
 
-	for index, part := range parts {
-		curr = curr.children[part]
+	if r.URL.Path != "/" {
+		parts := strings.Split(r.URL.Path, "/")[1:]
+		depth := len(parts)
 
-		if depth == index+1 {
-			break
+		for index, part := range parts {
+			curr = curr.children[part]
+
+			if depth == index+1 {
+				break
+			}
 		}
 	}
-
-	conn := Conn{Writer: w, Request: r, Params: r.Form, halted: false}
 
 	for _, plug := range curr.methods[r.Method] {
 		result := plug(conn)
