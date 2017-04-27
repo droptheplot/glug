@@ -3,6 +3,7 @@ package glug
 import (
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // Conn is a struct to carry all request related data through plugs.
@@ -16,11 +17,17 @@ type Conn struct {
 
 // Router is a http.Handler.
 type Router struct {
-	children map[string][]Plug
+	node node
 }
 
 // Plug is a function type we should use to make a pipeline for request.
 type Plug func(Conn) Conn
+
+type node struct {
+	path     string
+	methods  map[string][]Plug
+	children map[string]*node
+}
 
 // Halt will stop execution of plugs.
 func (conn Conn) Halt() Conn {
@@ -30,25 +37,56 @@ func (conn Conn) Halt() Conn {
 
 // Init will initialize new router.
 func Init() *Router {
-	return &Router{children: make(map[string][]Plug)}
+	return &Router{node: node{children: make(map[string]*node)}}
 }
 
 // HandleFunc will add new endpoint to router.
 func (router *Router) HandleFunc(method string, path string, plugs ...Plug) {
-	router.children[path] = append(router.children[path], plugs...)
+	var curr *node
+
+	parts := strings.Split(path, "/")[1:]
+	depth := len(parts)
+	prev := &router.node
+
+	for index, part := range parts {
+		if child, ok := prev.children[part]; ok {
+			curr = child
+		} else {
+			curr = &node{path: part, children: make(map[string]*node)}
+		}
+
+		if depth == index+1 {
+			curr.methods = make(map[string][]Plug)
+			curr.methods[method] = plugs
+		}
+
+		prev.children[part] = curr
+		prev = curr
+	}
 }
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/favicon.ico" {
-		logRequest("GET", r.URL.Path)
+		logRequest(r.Method, r.URL.Path)
 	}
 
 	r.ParseForm()
 
-	conn := Conn{Writer: w, Request: r, Params: r.Form, halted: false}
-	plugs := router.children[r.URL.Path]
+	parts := strings.Split(r.URL.Path, "/")[1:]
+	depth := len(parts)
+	curr := &router.node
 
-	for _, plug := range plugs {
+	for index, part := range parts {
+		curr = curr.children[part]
+
+		if depth == index+1 {
+			break
+		}
+	}
+
+	conn := Conn{Writer: w, Request: r, Params: r.Form, halted: false}
+
+	for _, plug := range curr.methods[r.Method] {
 		result := plug(conn)
 
 		if result.halted == false {
