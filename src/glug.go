@@ -36,6 +36,11 @@ func (conn Conn) Halt() Conn {
 	return conn
 }
 
+// newConn returns new Conn struct.
+func newConn(w http.ResponseWriter, r *http.Request, p url.Values) Conn {
+	return Conn{Writer: w, Request: r, Params: p, halted: false}
+}
+
 // New will initialize new router.
 func New() *Router {
 	return &Router{node: node{children: make(map[string]*node)}}
@@ -82,7 +87,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
 	curr := &router.node
-	conn := Conn{Writer: w, Request: r, Params: r.Form, halted: false}
+	conn := newConn(w, r, r.Form)
 
 	if r.URL.Path != "/" {
 		parts := strings.Split(r.URL.Path, "/")[1:]
