@@ -36,8 +36,8 @@ func (conn Conn) Halt() Conn {
 	return conn
 }
 
-// Init will initialize new router.
-func Init() *Router {
+// New will initialize new router.
+func New() *Router {
 	return &Router{node: node{children: make(map[string]*node)}}
 }
 
