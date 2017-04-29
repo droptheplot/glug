@@ -73,9 +73,11 @@ func (router *Router) HandleFunc(method string, path string, plugs ...Plug) {
 }
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/favicon.ico" {
-		logRequest(r.Method, r.URL.Path)
+	if r.URL.Path == "/favicon.ico" {
+		return
 	}
+
+	logRequest(r.Method, r.URL.Path)
 
 	r.ParseForm()
 
