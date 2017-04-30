@@ -123,6 +123,8 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	logParams(conn.Params)
+
 	for _, plug := range curr.methods[r.Method] {
 		result := plug(conn)
 
