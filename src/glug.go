@@ -26,6 +26,7 @@ type Plug func(Conn) Conn
 
 type node struct {
 	path     string
+	isParam  bool
 	methods  map[string][]Plug
 	children map[string]*node
 }
@@ -63,7 +64,17 @@ func (router *Router) HandleFunc(method string, path string, plugs ...Plug) {
 			if child, ok := prev.children[part]; ok {
 				curr = child
 			} else {
-				curr = &node{path: part, children: make(map[string]*node)}
+				isParam := false
+
+				if part[0] == ':' {
+					isParam = true
+				}
+
+				curr = &node{
+					path:     part,
+					children: make(map[string]*node),
+					isParam:  isParam,
+				}
 			}
 
 			if depth == index+1 {
@@ -94,7 +105,17 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		depth := len(parts)
 
 		for index, part := range parts {
-			curr = curr.children[part]
+			if curr.children[part] == nil {
+				for _, child := range curr.children {
+					if child.isParam == true {
+						conn.Params.Add(child.path[1:], part)
+						curr = child
+						break
+					}
+				}
+			} else {
+				curr = curr.children[part]
+			}
 
 			if depth == index+1 {
 				break
