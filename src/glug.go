@@ -3,43 +3,12 @@ package glug
 import (
 	// "github.com/davecgh/go-spew/spew"
 	"net/http"
-	"net/url"
 	"strings"
 )
-
-// Conn is a struct to carry all request related data through plugs.
-type Conn struct {
-	uuid    string
-	halted  bool
-	Writer  http.ResponseWriter
-	Request *http.Request
-	Params  url.Values
-}
 
 // Router is a http.Handler.
 type Router struct {
 	node node
-}
-
-// Plug is a function type we should use to make a pipeline for request.
-type Plug func(Conn) Conn
-
-type node struct {
-	path     string
-	isParam  bool
-	methods  map[string][]Plug
-	children map[string]*node
-}
-
-// Halt will stop execution of plugs.
-func (conn Conn) Halt() Conn {
-	conn.halted = true
-	return conn
-}
-
-// newConn returns new Conn struct.
-func newConn(w http.ResponseWriter, r *http.Request, p url.Values) Conn {
-	return Conn{Writer: w, Request: r, Params: p, halted: false}
 }
 
 // New will initialize new router.
