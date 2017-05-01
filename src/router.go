@@ -23,37 +23,7 @@ func (router *Router) HandleFunc(method string, path string, plugs ...Plug) {
 		router.node.methods = make(map[string][]Plug)
 		router.node.methods[method] = plugs
 	} else {
-		var curr *node
-
-		parts := strings.Split(path, "/")[1:]
-		depth := len(parts)
-		prev := &router.node
-
-		for index, part := range parts {
-			if child, ok := prev.children[part]; ok {
-				curr = child
-			} else {
-				isParam := false
-
-				if part[0] == ':' {
-					isParam = true
-				}
-
-				curr = &node{
-					path:     part,
-					children: make(map[string]*node),
-					isParam:  isParam,
-				}
-			}
-
-			if depth == index+1 {
-				curr.methods = make(map[string][]Plug)
-				curr.methods[method] = plugs
-			}
-
-			prev.children[part] = curr
-			prev = curr
-		}
+		router.node.graft(method, path, plugs)
 	}
 }
 
